@@ -55,7 +55,20 @@ menuButton.addEventListener('click', () => {
   menuButton.setAttribute('aria-label', isOpen ? 'Abrir navegación' : 'Cerrar navegación');
 });
 
-navigation.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMenu));
+document.querySelectorAll('a[href^="#"]').forEach(link => {
+  link.addEventListener('click', () => {
+    const target = document.getElementById(link.getAttribute('href').slice(1));
+    if (!target) return;
+    closeMenu();
+    const section = target.closest('section') || target;
+    section.querySelectorAll('.reveal-pending').forEach(element => {
+      element.classList.remove('reveal-pending');
+      revealObserver?.unobserve(element);
+    });
+    target.classList.remove('reveal-pending');
+    target.getAnimations?.().forEach(animation => animation.cancel());
+  });
+});
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && menuButton.getAttribute('aria-expanded') === 'true') {
     closeMenu();
@@ -64,20 +77,25 @@ document.addEventListener('keydown', event => {
 });
 
 const copyButton = document.querySelector('[data-copy-email]');
+const copyLabel = copyButton.querySelector('[data-copy-label]');
+const copyIcon = copyButton.querySelector('use');
 const copyStatus = document.querySelector('.copy-status');
 let resetTimer;
 copyButton.addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText('giavenomartin@gmail.com');
-    copyButton.textContent = 'Email copiado ✓';
+    copyLabel.textContent = 'Email copiado';
+    copyIcon.setAttribute('href', 'assets/ui-icons.svg#check');
     copyStatus.textContent = 'Email copiado al portapapeles.';
     clearTimeout(resetTimer);
     resetTimer = setTimeout(() => {
-      copyButton.textContent = 'Copiar email ▣';
+      copyLabel.textContent = 'Copiar email';
+      copyIcon.setAttribute('href', 'assets/ui-icons.svg#copy');
       copyStatus.textContent = '';
     }, 2500);
   } catch {
-    copyButton.textContent = 'Seleccioná el email para copiarlo';
+    copyLabel.textContent = 'Seleccioná el email para copiarlo';
+    copyIcon.setAttribute('href', 'assets/ui-icons.svg#copy');
     copyStatus.textContent = 'No se pudo copiar automáticamente. Podés seleccionar el email o abrirlo para escribir un mensaje.';
   }
 });
