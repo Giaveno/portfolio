@@ -1,0 +1,90 @@
+/* Shared identity: slate, cool neutrals, and soft sky blue. Edit theme colors here. */
+:root {
+  --font: 'DM Sans', sans-serif;
+  --display: 'Manrope', sans-serif;
+}
+
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e141b;
+  --surface: #151e28;
+  --surface-soft: #1b2835;
+  --text: #eef4f8;
+  --muted: #a0b1bf;
+  --text-secondary: #c0cfdc;
+  --text-subtle: #93aabd;
+  --accent: #a8d8f0;
+  --accent-hover: #c9e9fa;
+  --on-accent: #102a3b;
+  --line: #293948;
+  --border-strong: #41586b;
+  --accent-glow: #a8d8f033;
+  --art-glow: #203b5266;
+  --art-grid: #85b4d20b;
+  --art-border: #355a7545;
+  --art-orbit: #8abfdf1c;
+  --art-orbit-dashed: #8abfdf25;
+  --art-line: #7fa8c2;
+  --art-node: #172c3d;
+  --art-node-line: #9cc9e4;
+  --node-border: #456680;
+  --node-start: #20394b;
+  --node-end: #142534;
+  --shadow: #0003;
+  --shadow-strong: #0005;
+  --shadow-modal: #0008;
+  --project-surface: #131d27;
+  --gallery-surface: #1c2b39;
+  --image-surface: #eef6fc;
+  --image-overlay: #0e141bec;
+  --accent-tint: #a8d8f00a;
+  --contact-surface: #142736;
+  --contact-border: #304e65;
+  --contact-decoration: #a8d8f004;
+  --nav-surface: #15212c;
+  --header-surface: #0e141bf5;
+  --modal-backdrop: #080e15e8;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f3f8fc;
+  --surface: #ffffff;
+  --surface-soft: #e5f0f8;
+  --text: #172b3b;
+  --muted: #50697c;
+  --text-secondary: #36556c;
+  --text-subtle: #5b7488;
+  --accent: #206487;
+  --accent-hover: #174e6b;
+  --on-accent: #ffffff;
+  --line: #cfdee9;
+  --border-strong: #9bb8cc;
+  --accent-glow: #20648722;
+  --art-glow: #c8e5f588;
+  --art-grid: #3e789c12;
+  --art-border: #aecddd;
+  --art-orbit: #4e8eb326;
+  --art-orbit-dashed: #4e8eb338;
+  --art-line: #4a809f;
+  --art-node: #ddecf6;
+  --art-node-line: #487d9a;
+  --node-border: #98bbd2;
+  --node-start: #f7fbff;
+  --node-end: #ddecf6;
+  --shadow: #1d3b5420;
+  --shadow-strong: #1d3b5430;
+  --shadow-modal: #1d3b5440;
+  --project-surface: #ffffff;
+  --gallery-surface: #dfedf7;
+  --image-surface: #eef6fc;
+  --image-overlay: #fffffff2;
+  --accent-tint: #2064870d;
+  --contact-surface: #e2f0f9;
+  --contact-border: #accde1;
+  --contact-decoration: #20648708;
+  --nav-surface: #f2f8fc;
+  --header-surface: #f3f8fcf5;
+  --modal-backdrop: #142c40ba;
+}
+
