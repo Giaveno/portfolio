@@ -132,7 +132,7 @@ em{font-style:normal;color:var(--accent)}
 .thinking-grid h3{font-size:22px;margin:0 0 11px}
 .thinking-grid p{font-size:14px;line-height:1.85;color:var(--muted);margin:0;max-width:330px}
 .education{position:relative;isolation:isolate;overflow:hidden;display:flex;align-items:center;gap:22px;margin-top:55px;padding:34px;background:var(--surface-soft);border-left:2px solid var(--accent)}
-.education-watermark{position:absolute;z-index:-1;right:-7px;bottom:-32px;font:700 180px/1 var(--display);color:var(--text);opacity:.035;letter-spacing:-.09em}
+.education-watermark{position:absolute;z-index:-1;right:-7px;bottom:-15px;width:240px;height:180px;stroke:var(--accent);stroke-width:1;opacity:.12}
 .education-icon{width:48px;height:48px;display:grid;place-items:center;border:1px solid var(--border-strong);border-radius:50%;color:var(--accent);flex-shrink:0}
 .education .eyebrow{font-size:9px;margin-bottom:9px}
 .education h3{font-size:21px;margin-bottom:5px}
@@ -269,6 +269,37 @@ em{font-style:normal;color:var(--accent)}
 .gallery-dialog-footer a{display:inline-flex;align-items:center;gap:7px;min-height:44px;color:var(--accent);text-decoration:underline;text-underline-offset:4px}
 
 /* 10 — Existing progressive motion hooks */
+.site-intro{position:fixed;bottom:24px;left:24px;z-index:70;display:grid;grid-template-columns:auto 1fr;align-items:center;gap:10px 18px;padding:15px 20px;background:var(--surface);color:var(--text);border:1px solid var(--line);box-shadow:0 6px 30px var(--shadow);pointer-events:none;animation:intro-exit 1050ms var(--ease-out) forwards}
+.site-intro>span{font:600 26px/1 var(--display);letter-spacing:-.08em;color:var(--accent)}
+.site-intro small{font-size:8px;letter-spacing:.1em}
+.site-intro i{grid-column:1/-1;height:1px;background:var(--accent);transform-origin:left;animation:intro-line 650ms var(--ease-out) both}
+.split-word{display:inline-block}
+.split-visual{display:inline}
+.counter-value{display:inline-block;font-variant-numeric:tabular-nums}
+.stack-count .counter-value{min-width:2ch}
+.system-art{--scroll-shift:0px}
+.art-aurora{translate:0 var(--scroll-shift)}
+.art-center{translate:0 var(--scroll-shift)}
+.motion-ready .art-aurora{animation:aurora-drift 13s var(--ease-in-out) infinite alternate;animation-play-state:paused}
+.motion-ready .orbital-one{animation:orbit-turn 35s linear infinite;animation-play-state:paused}
+.motion-ready .orbital-two{animation:orbit-turn 48s linear infinite reverse;animation-play-state:paused}
+.signals-running .art-aurora,.signals-running .orbital{animation-play-state:running}
+.motion-ready .marquee-track{animation:marquee-loop 32s linear infinite;animation-play-state:paused}
+.marquee-active .marquee-track{animation-play-state:running}
+.marquee:hover .marquee-track,.marquee:focus-within .marquee-track{animation-play-state:paused}
+.motion-ready .scroll-link .icon{animation:scroll-nudge 1800ms var(--ease-in-out) infinite;animation-play-state:paused}
+.hero-motion-running .scroll-link .icon{animation-play-state:running}
+.motion-paused .signal{animation-play-state:paused}
+::view-transition-old(root){animation:theme-fade-out 320ms ease both}
+::view-transition-new(root){animation:theme-fade-in 360ms ease both}
+@keyframes intro-line{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes intro-exit{0%,65%{opacity:1;transform:translateY(0)}100%{opacity:0;visibility:hidden;transform:translateY(8px)}}
+@keyframes aurora-drift{from{transform:translate(-8%,-5%) scale(.9);opacity:.6}to{transform:translate(8%,8%) scale(1.2);opacity:1}}
+@keyframes orbit-turn{from{transform:translate(-50%,-50%) rotate(0)}to{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes marquee-loop{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes scroll-nudge{0%,100%{transform:translateY(-2px);opacity:.6}50%{transform:translateY(3px);opacity:1}}
+@keyframes theme-fade-out{to{opacity:0}}
+@keyframes theme-fade-in{from{opacity:0}}
 .reading-progress{position:fixed;inset:0 0 auto;z-index:90;height:3px;pointer-events:none}
 .reading-progress>span{display:block;height:100%;transform:scaleX(0);transform-origin:left;background:var(--accent)}
 .reveal-pending{opacity:0;translate:0 24px}
@@ -383,6 +414,8 @@ em{font-style:normal;color:var(--accent)}
   .button-primary:active::before{transform:translateY(0)}.technology-item:active,.gallery-view:active{border-color:var(--accent);background:var(--accent-tint)}
 }
 @media(prefers-reduced-motion:reduce){
+  .site-intro{display:none}.art-aurora,.art-center{translate:none}
+  ::view-transition-old(root),::view-transition-new(root){animation:none}
   html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}
   .reveal-pending{opacity:1;translate:none}.system-node,.system-lines{translate:none}.hero-line{overflow:visible}
   .technology-item:hover,.technology-item:focus-visible,.technology-item[data-tooltip-open=true]{transform:none}
