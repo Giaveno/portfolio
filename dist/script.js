@@ -121,6 +121,7 @@ copyButton.addEventListener('click', async () => {
 
 document.querySelector('[data-year]').textContent = String(new Date().getFullYear());
 
+/* Gallery: decoded, race-safe swaps and a native keyboard-modal lifecycle. */
 const galleryViews = [...document.querySelectorAll('[data-flowy-view]')];
 const galleryImage = document.querySelector('#flowy-screenshot');
 const galleryTitle = document.querySelector('#flowy-view-title');
@@ -130,60 +131,149 @@ const galleryStatus = document.querySelector('[data-gallery-status]');
 const galleryDialog = document.querySelector('#flowy-preview');
 const galleryOpen = document.querySelector('.gallery-open');
 const dialogImage = document.querySelector('[data-dialog-image]');
+const dialogDescription = document.querySelector('#flowy-dialog-description');
+const dialogCounter = document.querySelector('[data-dialog-counter]');
+let galleryIndex = 0;
+let galleryDesiredIndex = 0;
 let galleryRequest = 0;
 let galleryAnimation;
+let dialogAnimation;
+let dialogCloseRequest = 0;
+let dialogClosing = false;
 
-galleryViews.forEach((button, index) => {
-  button.addEventListener('click', async () => {
-    const request = ++galleryRequest;
-    const source = button.querySelector('img').getAttribute('src');
-    if (source === galleryImage.getAttribute('src')) return;
-    const nextImage = new Image();
-    nextImage.src = source;
-    try {
-      await nextImage.decode();
-    } catch {
-      if (request === galleryRequest) galleryStatus.textContent = 'No se pudo cargar la captura. Intentá nuevamente.';
-      return;
-    }
-    if (request !== galleryRequest) return;
-    galleryAnimation?.cancel();
-    galleryViews.forEach(view => view.setAttribute('aria-pressed', String(view === button)));
-    galleryImage.src = source;
-    galleryImage.alt = button.dataset.alt;
-    galleryTitle.textContent = button.dataset.title;
-    galleryDescription.textContent = button.dataset.description;
-    galleryCounter.textContent = `${String(index + 1).padStart(2, '0')} / 05`;
-    galleryOpen.setAttribute('aria-label', `Ampliar captura: ${button.dataset.title}`);
-    galleryStatus.textContent = `Captura ${index + 1} de 5: ${button.dataset.title}.`;
-    if (!motionQuery.matches && typeof galleryImage.animate === 'function') {
-      galleryAnimation = galleryImage.animate(
-        [{ opacity: .35, translate: '0 12px' }, { opacity: 1, translate: '0 0' }],
-        { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' }
-      );
-    }
-  });
-});
-
-galleryOpen.addEventListener('click', () => {
+function galleryPosition(index = galleryIndex) {
+  return String(index + 1).padStart(2, '0') + ' / ' + String(galleryViews.length).padStart(2, '0');
+}
+function syncDialogContents() {
   dialogImage.src = galleryImage.getAttribute('src');
   dialogImage.alt = galleryImage.alt;
-  document.querySelector('#flowy-dialog-title').textContent = `Flowy · ${galleryTitle.textContent}`;
+  document.querySelector('#flowy-dialog-title').textContent = 'Flowy · ' + galleryTitle.textContent;
   document.querySelector('[data-original-image]').href = galleryImage.getAttribute('src');
-  galleryDialog.showModal();
-  document.body.classList.add('gallery-modal-open');
-});
+  dialogDescription.textContent = galleryDescription.textContent;
+  dialogCounter.textContent = galleryPosition();
+}
+function galleryImageMotion(image, frames, duration) {
+  if (motionQuery.matches || typeof image.animate !== 'function') return null;
+  const animation = image.animate(frames, { duration, easing: 'cubic-bezier(.16,1,.3,1)' });
+  animation.finished.catch(() => {});
+  return animation;
+}
+async function selectGalleryView(index) {
+  const request = ++galleryRequest;
+  galleryDesiredIndex = (index + galleryViews.length) % galleryViews.length;
+  const selectedIndex = galleryDesiredIndex;
+  const button = galleryViews[selectedIndex];
+  const source = button.querySelector('img').getAttribute('src');
+  // Even selecting the current image invalidates a previous pending decode.
+  if (source === galleryImage.getAttribute('src')) {
+    galleryAnimation?.cancel();
+    return;
+  }
+  const nextImage = new Image();
+  nextImage.src = source;
+  try {
+    if (typeof nextImage.decode === 'function') await nextImage.decode();
+    else if (!nextImage.complete) await new Promise((resolve, reject) => {
+      nextImage.onload = resolve;
+      nextImage.onerror = reject;
+    });
+    if (!nextImage.naturalWidth) throw new Error('Invalid gallery image');
+  } catch {
+    if (request === galleryRequest) {
+      const message = 'No se pudo cargar la captura. Intentá nuevamente.';
+      galleryStatus.textContent = message;
+      if (galleryDialog.open) dialogDescription.textContent = message;
+      galleryDesiredIndex = galleryIndex;
+    }
+    return;
+  }
+  if (request !== galleryRequest) return;
+  galleryAnimation?.cancel();
+  const visibleImage = galleryDialog.open ? dialogImage : galleryImage;
+  galleryAnimation = galleryImageMotion(visibleImage,
+    [{ opacity: 1, translate: '0 0' }, { opacity: 0, translate: '0 -7px' }], 120);
+  if (galleryAnimation) await galleryAnimation.finished.catch(() => {});
+  if (request !== galleryRequest) return;
+  galleryIndex = selectedIndex;
+  galleryViews.forEach(view => view.setAttribute('aria-pressed', String(view === button)));
+  galleryImage.src = source;
+  galleryImage.alt = button.dataset.alt;
+  galleryTitle.textContent = button.dataset.title;
+  galleryDescription.textContent = button.dataset.description;
+  galleryCounter.textContent = galleryPosition();
+  galleryOpen.setAttribute('aria-label', 'Ampliar captura: ' + button.dataset.title);
+  galleryStatus.textContent = 'Captura ' + (selectedIndex + 1) + ' de ' + galleryViews.length + ': ' + button.dataset.title + '.';
+  syncDialogContents();
+  galleryAnimation = galleryImageMotion(visibleImage,
+    [{ opacity: 0, translate: '0 9px' }, { opacity: 1, translate: '0 0' }], 340);
+}
+galleryViews.forEach((button, index) => button.addEventListener('click', () => selectGalleryView(index)));
 
-document.querySelector('.gallery-close').addEventListener('click', () => galleryDialog.close());
+function openGalleryDialog() {
+  ++dialogCloseRequest;
+  dialogClosing = false;
+  dialogAnimation?.cancel();
+  galleryDialog.classList.remove('is-closing');
+  syncDialogContents();
+  if (typeof galleryDialog.showModal !== 'function') {
+    window.location.assign(galleryImage.getAttribute('src'));
+    return;
+  }
+  if (!galleryDialog.open) galleryDialog.showModal();
+  document.body.classList.add('gallery-modal-open');
+  configurePointerEffects();
+  if (!motionQuery.matches && typeof galleryDialog.animate === 'function') {
+    dialogAnimation = galleryDialog.animate(
+      [{ opacity: 0, transform: 'translateY(14px) scale(.975)' }, { opacity: 1, transform: 'none' }],
+      { duration: 340, easing: 'cubic-bezier(.16,1,.3,1)' }
+    );
+    dialogAnimation.finished.catch(() => {});
+  }
+}
+async function requestDialogClose() {
+  if (!galleryDialog.open || dialogClosing) return;
+  dialogClosing = true;
+  const request = ++dialogCloseRequest;
+  dialogAnimation?.cancel();
+  if (!motionQuery.matches && typeof galleryDialog.animate === 'function') {
+    galleryDialog.classList.add('is-closing');
+    dialogAnimation = galleryDialog.animate(
+      [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(8px) scale(.985)' }],
+      { duration: 180, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' }
+    );
+    await dialogAnimation.finished.catch(() => {});
+  }
+  if (request === dialogCloseRequest && dialogClosing) galleryDialog.close();
+}
+galleryOpen.addEventListener('click', openGalleryDialog);
+document.querySelector('.gallery-close').addEventListener('click', requestDialogClose);
+galleryDialog.addEventListener('cancel', event => {
+  event.preventDefault();
+  requestDialogClose();
+});
 galleryDialog.addEventListener('click', event => {
+  // Keyboard-generated control clicks can have (0, 0); only the backdrop may close.
+  if (event.target !== galleryDialog) return;
   const bounds = galleryDialog.getBoundingClientRect();
-  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) {
-    galleryDialog.close();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) requestDialogClose();
+});
+galleryDialog.addEventListener('keydown', event => {
+  if (dialogClosing || event.altKey || event.ctrlKey || event.metaKey) return;
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    event.preventDefault();
+    selectGalleryView(galleryDesiredIndex + (event.key === 'ArrowRight' ? 1 : -1));
   }
 });
+document.querySelector('[data-gallery-prev]').addEventListener('click', () => selectGalleryView(galleryDesiredIndex - 1));
+document.querySelector('[data-gallery-next]').addEventListener('click', () => selectGalleryView(galleryDesiredIndex + 1));
 galleryDialog.addEventListener('close', () => {
+  ++dialogCloseRequest;
+  dialogClosing = false;
+  dialogAnimation?.cancel();
+  galleryDialog.classList.remove('is-closing');
   document.body.classList.remove('gallery-modal-open');
-  galleryOpen.focus();
+  galleryOpen.focus({ preventScroll: true });
+  configurePointerEffects();
 });
 
 /* Motion: progressive enhancement, finite work, and a single lifecycle. */
@@ -451,6 +541,7 @@ motionQuery.addEventListener('change', () => {
   motionAnimations.forEach(animation => animation.cancel());
   counterTargets.forEach(finishCounter);
   galleryAnimation?.cancel();
+  dialogAnimation?.cancel();
   themeButtonAnimation?.cancel();
   themeTransition?.skipTransition();
   root.classList.remove('theme-changing');
@@ -504,3 +595,129 @@ document.addEventListener('click', event => {
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') dismissTechnologyLabels();
 });
+
+/* Fine-mouse enhancements: one scheduled frame per event burst, never an idle loop. */
+const cursorElement = document.createElement('span');
+cursorElement.className = 'custom-cursor';
+cursorElement.setAttribute('aria-hidden', 'true');
+cursorElement.hidden = true;
+document.body.append(cursorElement);
+document.querySelectorAll('[data-tilt]').forEach(card => {
+  const clip = document.createElement('span');
+  clip.className = 'project-glare-clip';
+  clip.setAttribute('aria-hidden', 'true');
+  const glare = document.createElement('span');
+  glare.className = 'project-glare';
+  clip.append(glare);
+  card.append(clip);
+});
+const pointerState = { x: 0, y: 0, target: null, magnet: null, tilt: null, magnetBounds: null, tiltBounds: null };
+let pointerController;
+let pointerFrame = 0;
+
+function resetPointerFeedback() {
+  cancelAnimationFrame(pointerFrame);
+  pointerFrame = 0;
+  cursorElement.hidden = true;
+  cursorElement.style.removeProperty('transform');
+  cursorElement.dataset.kind = 'default';
+  if (pointerState.magnet) {
+    pointerState.magnet.style.removeProperty('--magnet-x');
+    pointerState.magnet.style.removeProperty('--magnet-y');
+    pointerState.magnet.classList.remove('is-magnetic');
+  }
+  if (pointerState.tilt) {
+    pointerState.tilt.style.removeProperty('--tilt-x');
+    pointerState.tilt.style.removeProperty('--tilt-y');
+    pointerState.tilt.classList.remove('is-tilting');
+    pointerState.tilt.querySelector('.project-glare').style.removeProperty('transform');
+  }
+  pointerState.target = pointerState.magnet = pointerState.tilt = null;
+  pointerState.magnetBounds = pointerState.tiltBounds = null;
+}
+
+function renderPointerFeedback() {
+  pointerFrame = 0;
+  if (!pointerController || !pointerState.target) return;
+  const target = pointerState.target;
+  const magnet = target.closest('.button, [data-magnetic]');
+  const tilt = target.closest('[data-tilt]');
+  // Read new bounds before any writes; they remain cached until leave/scroll/resize.
+  const magnetBounds = magnet === pointerState.magnet ? pointerState.magnetBounds : magnet?.getBoundingClientRect();
+  const tiltBounds = tilt === pointerState.tilt ? pointerState.tiltBounds : tilt?.getBoundingClientRect();
+  if (pointerState.magnet && pointerState.magnet !== magnet) {
+    pointerState.magnet.style.removeProperty('--magnet-x');
+    pointerState.magnet.style.removeProperty('--magnet-y');
+    pointerState.magnet.classList.remove('is-magnetic');
+  }
+  if (pointerState.tilt && pointerState.tilt !== tilt) {
+    pointerState.tilt.style.removeProperty('--tilt-x');
+    pointerState.tilt.style.removeProperty('--tilt-y');
+    pointerState.tilt.classList.remove('is-tilting');
+    pointerState.tilt.querySelector('.project-glare').style.removeProperty('transform');
+  }
+  pointerState.magnet = magnet;
+  pointerState.tilt = tilt;
+  pointerState.magnetBounds = magnetBounds;
+  pointerState.tiltBounds = tiltBounds;
+  cursorElement.hidden = false;
+  cursorElement.style.transform = 'translate3d(' + pointerState.x + 'px,' + pointerState.y + 'px,0)';
+  cursorElement.dataset.kind = target.closest('a[href], button:not(:disabled), summary') ? 'interactive' : tilt ? 'project' : 'default';
+  if (magnet && magnetBounds) {
+    const x = Math.max(-6, Math.min(6, (pointerState.x - magnetBounds.left - magnetBounds.width / 2) * .09));
+    const y = Math.max(-5, Math.min(5, (pointerState.y - magnetBounds.top - magnetBounds.height / 2) * .12));
+    magnet.style.setProperty('--magnet-x', x.toFixed(2) + 'px');
+    magnet.style.setProperty('--magnet-y', y.toFixed(2) + 'px');
+    magnet.classList.add('is-magnetic');
+  }
+  if (tilt && tiltBounds) {
+    const x = Math.max(0, Math.min(tiltBounds.width, pointerState.x - tiltBounds.left));
+    const y = Math.max(0, Math.min(tiltBounds.height, pointerState.y - tiltBounds.top));
+    const pitch = -(y / tiltBounds.height - .5) * 2.4;
+    const yaw = (x / tiltBounds.width - .5) * 3;
+    tilt.style.setProperty('--tilt-x', pitch.toFixed(3) + 'deg');
+    tilt.style.setProperty('--tilt-y', yaw.toFixed(3) + 'deg');
+    tilt.querySelector('.project-glare').style.transform = 'translate3d(' + (x - 210).toFixed(1) + 'px,' + (y - 210).toFixed(1) + 'px,0)';
+    tilt.classList.add('is-tilting');
+  }
+}
+function configurePointerEffects() {
+  const enabled = finePointerQuery.matches && !motionQuery.matches && !document.hidden && document.hasFocus() && !galleryDialog.open;
+  if (!enabled) {
+    pointerController?.abort();
+    pointerController = undefined;
+    root.classList.remove('pointer-effects-ready');
+    resetPointerFeedback();
+    return;
+  }
+  if (pointerController) return;
+  pointerController = new AbortController();
+  const options = { passive: true, signal: pointerController.signal };
+  root.classList.add('pointer-effects-ready');
+  document.addEventListener('pointermove', event => {
+    if (event.pointerType !== 'mouse') return resetPointerFeedback();
+    pointerState.x = event.clientX;
+    pointerState.y = event.clientY;
+    pointerState.target = event.target;
+    if (!pointerFrame) pointerFrame = requestAnimationFrame(renderPointerFeedback);
+  }, options);
+  document.addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'mouse') resetPointerFeedback();
+  }, options);
+  document.documentElement.addEventListener('pointerleave', resetPointerFeedback, options);
+}
+finePointerQuery.addEventListener('change', configurePointerEffects);
+motionQuery.addEventListener('change', configurePointerEffects);
+document.addEventListener('visibilitychange', configurePointerEffects);
+window.addEventListener('focus', configurePointerEffects);
+window.addEventListener('blur', () => {
+  pointerController?.abort();
+  pointerController = undefined;
+  root.classList.remove('pointer-effects-ready');
+  resetPointerFeedback();
+});
+window.addEventListener('scroll', resetPointerFeedback, { passive: true });
+window.addEventListener('resize', resetPointerFeedback, { passive: true });
+document.addEventListener('focusin', resetPointerFeedback);
+document.addEventListener('keydown', event => { if (event.key === 'Tab') resetPointerFeedback(); });
+configurePointerEffects();
